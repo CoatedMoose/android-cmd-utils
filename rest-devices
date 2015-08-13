@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# taken from the 6th comment on this SO answer http://stackoverflow.com/a/8063398/875806
+contains () { [[ "$1" =~ (^|[[:space:]])"$2"($|[[:space:]]) ]]; }
+
+#adb kill-server
+
+echo Only running test on $DEVICE_INCLUDE
+echo Excluding devices from test $DEVICE_EXCLUDE
+
+for DEVICE_SERIAL in $(adb devices | grep "\bdevice\b" | cut -f 1) ; do
+
+    contains $DEVICE_SERIAL $DEVICE_EXCLUDE
+    excluded=$?
+    if [ $excluded == 0 ]; then
+        echo Device ${DEVICE_SERIAL} excluded. Not turning off screen.
+        continue
+    fi
+
+    contains ${DEVICE_INCLUDE} ${DEVICE_SERIAL}
+    included=$?
+    if [ "$DEVICE_INCLUDE" ]; then
+        if [ $included == 0 ]; then
+            echo Turning off screen for ${DEVICE_SERIAL}
+            adb -s ${DEVICE_SERIAL} shell dumpsys input_method | grep "\(mScreenOn=true\|mInteractive=true\)" | xargs -0 test -z \
+                && adb -s ${DEVICE_SERIAL} shell input keyevent 26
+        else
+            echo Not powering off ${DEVICE_SERIAL}
+        fi
+    else
+        echo Device ${DEVICE_SERIAL}. Turning off screen.
+        adb -s ${DEVICE_SERIAL} shell dumpsys input_method | grep "\(mScreenOn=true\|mInteractive=true\)" | xargs -0 test -z \
+            && adb -s ${DEVICE_SERIAL} shell input keyevent 26
+    fi
+done
+exit 0

@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# taken from the 6th comment on this SO answer http://stackoverflow.com/a/8063398/875806
+contains () { [[ "$1" =~ (^|[[:space:]])"$2"($|[[:space:]]) ]]; }
+
+echo 'Running command adb -s [DEVICE_SERIAL]' $@
+echo Only running on $DEVICE_INCLUDE
+echo Excluding devices from $DEVICE_EXCLUDE
+
+for DEVICE_SERIAL in $(adb devices | grep "\bdevice\b" | cut -f 1) ; do
+
+    contains "$DEVICE_SERIAL" "$DEVICE_EXCLUDE"
+    excluded=$?
+    if [ $excluded == 0 ]; then
+        echo Device ${DEVICE_SERIAL} excluded.
+        continue
+    fi
+
+    contains "${DEVICE_INCLUDE}" "${DEVICE_SERIAL}"
+    included=$?
+    if [ -n "$DEVICE_INCLUDE" ]; then
+        if [ $included == 0 ]; then
+            echo Running command on ${DEVICE_SERIAL}
+            adb -s ${DEVICE_SERIAL} $@ &
+        else
+            echo Not executing on ${DEVICE_SERIAL}
+        fi
+    else
+        echo No includes list, running command on ${DEVICE_SERIAL}
+        adb -s ${DEVICE_SERIAL} $@ &
+    fi
+done
+
+wait
